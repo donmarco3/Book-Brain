@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  books    Book[]
+  notes    Note[]
+  cards    Card[]
+  buckets  Bucket[]
+  settings UserSettings?
+
+  @@map("users")
+}
+
+model Book {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  title     String
+  author    String?
+  status    String   @default("reading")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes Note[]
+  cards Card[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("books")
+}
+
+model Note {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  bookId       String   @map("book_id")
+  title        String
+  page         String
+  context      String?
+  capture      String?
+  spark        String?
+  linkedNoteId String?  @map("linked_note_id")
+  status       String   @default("inbox")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user       User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book       Book  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  linkedNote Note? @relation("NoteLinks", fields: [linkedNoteId], references: [id])
+  linkedFrom Note[] @relation("NoteLinks")
+
+  @@index([userId])
+  @@index([bookId])
+  @@index([status])
+  @@map("notes")
+}
+
+model Bucket {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cards CardBucket[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("buckets")
+}
+
+model Card {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  bookId           String   @map("book_id")
+  title            String
+  page             String
+  context          String?
+  capture          String?
+  spark            String?
+  linkedNoteId     String?  @map("linked_note_id")
+  retentionAnswers Json     @default("{}") @map("retention_answers")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book    Book         @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  buckets CardBucket[]
+
+  @@index([userId])
+  @@index([bookId])
+  @@index([createdAt(sort: Desc)])
+  @@map("cards")
+}
+
+model CardBucket {
+  cardId    String   @map("card_id")
+  bucketId  String   @map("bucket_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  card   Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  bucket Bucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+
+  @@id([cardId, bucketId])
+  @@index([bucketId])
+  @@map("card_buckets")
+}
+
+model UserSettings {
+  userId             String   @id @map("user_id")
+  retentionQuestions Json     @default("[\"Why did this stop you?\", \"What does this connect to in your life or other reading?\"]") @map("retention_questions")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
